@@ -1,3 +1,4 @@
+use clap::{Parser, ValueEnum};
 use std::env::temp_dir;
 use std::process::Command;
 use {
@@ -18,10 +19,22 @@ use {
 use reedline::FileBackedHistory;
 use reedline::{CursorConfig, MenuBuilder};
 
+#[derive(Parser)]
+struct Args {
+    #[arg(short, long, default_value = "emacs")]
+    mode: Mode,
+}
+
+#[derive(Clone, ValueEnum)]
+enum Mode {
+    Emacs,
+    Vi,
+}
+
 fn main() -> reedline::Result<()> {
     println!("Ctrl-D to quit");
-    // quick command like parameter handling
-    let vi_mode = matches!(std::env::args().nth(1), Some(x) if x == "--vi");
+
+    let args = Args::parse();
 
     // Setting history_per_session to true will allow the history to be isolated to the current session
     // Setting history_per_session to false will allow the history to be shared across all sessions
@@ -105,22 +118,25 @@ fn main() -> reedline::Result<()> {
             ListMenu::default().with_name("history_menu"),
         )));
 
-    let edit_mode: Box<dyn EditMode> = if vi_mode {
-        let mut normal_keybindings = default_vi_normal_keybindings();
-        let mut insert_keybindings = default_vi_insert_keybindings();
+    let edit_mode: Box<dyn EditMode> = match args.mode {
+        Mode::Emacs => {
+            let mut keybindings = default_emacs_keybindings();
+            add_menu_keybindings(&mut keybindings);
+            add_newline_keybinding(&mut keybindings);
 
-        add_menu_keybindings(&mut normal_keybindings);
-        add_menu_keybindings(&mut insert_keybindings);
+            Box::new(Emacs::new(keybindings))
+        }
+        Mode::Vi => {
+            let mut normal_keybindings = default_vi_normal_keybindings();
+            let mut insert_keybindings = default_vi_insert_keybindings();
 
-        add_newline_keybinding(&mut insert_keybindings);
+            add_menu_keybindings(&mut normal_keybindings);
+            add_menu_keybindings(&mut insert_keybindings);
 
-        Box::new(Vi::new(insert_keybindings, normal_keybindings))
-    } else {
-        let mut keybindings = default_emacs_keybindings();
-        add_menu_keybindings(&mut keybindings);
-        add_newline_keybinding(&mut keybindings);
+            add_newline_keybinding(&mut insert_keybindings);
 
-        Box::new(Emacs::new(keybindings))
+            Box::new(Vi::new(insert_keybindings, normal_keybindings))
+        }
     };
 
     line_editor = line_editor.with_edit_mode(edit_mode);
