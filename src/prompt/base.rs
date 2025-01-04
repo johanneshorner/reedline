@@ -45,9 +45,6 @@ impl PromptHistorySearch {
 /// Modes that the prompt can be in
 #[derive(Serialize, Deserialize, Clone, Debug, EnumIter)]
 pub enum PromptEditMode {
-    /// The default mode
-    Default,
-
     /// Emacs normal mode
     Emacs,
 
@@ -72,7 +69,6 @@ pub enum PromptViMode {
 impl Display for PromptEditMode {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            PromptEditMode::Default => write!(f, "Default"),
             PromptEditMode::Emacs => write!(f, "Emacs"),
             PromptEditMode::Vi(_) => write!(f, "Vi_Normal\nVi_Insert"),
             PromptEditMode::Custom(s) => write!(f, "Custom_{s}"),
