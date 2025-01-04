@@ -565,9 +565,15 @@ impl Editor {
     pub fn get_selection(&self) -> Option<(usize, usize)> {
         self.selection_anchor.map(|selection_anchor| {
             if self.insertion_point() > selection_anchor {
-                (selection_anchor, self.insertion_point())
+                (selection_anchor, self.line_buffer.grapheme_right_index())
             } else {
-                (self.insertion_point(), selection_anchor)
+                (
+                    self.insertion_point(),
+                    self.line_buffer
+                        .grapheme_right_index_from_pos(selection_anchor),
+                    // self.insertion_point(),
+                    // selection_anchor + 1,
+                )
             }
         })
     }

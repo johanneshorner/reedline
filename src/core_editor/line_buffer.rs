@@ -150,22 +150,32 @@ impl LineBuffer {
         )
     }
 
-    /// Cursor position *behind* the next unicode grapheme to the right
-    pub fn grapheme_right_index(&self) -> usize {
-        self.lines[self.insertion_point..]
+    /// Position *behind* the next unicode grapheme to the right
+    pub fn grapheme_right_index_from_pos(&self, pos: usize) -> usize {
+        self.lines[pos..]
             .grapheme_indices(true)
             .nth(1)
-            .map(|(i, _)| self.insertion_point + i)
+            .map(|(i, _)| pos + i)
             .unwrap_or_else(|| self.lines.len())
     }
 
-    /// Cursor position *in front of* the next unicode grapheme to the left
-    pub fn grapheme_left_index(&self) -> usize {
-        self.lines[..self.insertion_point]
+    /// Position *in front of* the next unicode grapheme to the left
+    pub fn grapheme_left_index_from_pos(&self, pos: usize) -> usize {
+        self.lines[..pos]
             .grapheme_indices(true)
             .last()
             .map(|(i, _)| i)
             .unwrap_or(0)
+    }
+
+    /// Cursor position *behind* the next unicode grapheme to the right
+    pub fn grapheme_right_index(&self) -> usize {
+        self.grapheme_right_index_from_pos(self.insertion_point)
+    }
+
+    /// Cursor position *in front of* the next unicode grapheme to the left
+    pub fn grapheme_left_index(&self) -> usize {
+        self.grapheme_left_index_from_pos(self.insertion_point)
     }
 
     /// Cursor position *behind* the next word to the right
