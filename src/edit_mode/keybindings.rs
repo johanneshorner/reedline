@@ -1,8 +1,9 @@
 use {
     crate::{enums::ReedlineEvent, EditCommand},
     crossterm::event::{KeyCode, KeyModifiers},
+    itertools::Itertools,
     serde::{Deserialize, Serialize},
-    std::collections::HashMap,
+    std::collections::{hash_map::Entry, HashMap},
 };
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
@@ -11,11 +12,43 @@ pub struct KeyCombination {
     pub key_code: KeyCode,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum KeyNode {
+    Sequence(Sequence),
+    Event(ReedlineEvent),
+}
+
+impl KeyNode {
+    fn new(key_combinations: Vec<KeyCombination>, command: ReedlineEvent) -> Self {
+        let mut prev = KeyNode::Event(command);
+        for key_combination in key_combinations.into_iter().rev() {
+            prev = KeyNode::Sequence(Sequence {
+                map: HashMap::from([(key_combination, prev)]),
+            });
+        }
+        prev
+    }
+
+    fn merge(&mut self, other: Self) {}
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct Sequence {
+    // name: Option<String>,
+    map: HashMap<KeyCombination, KeyNode>,
+}
+
+impl Sequence {
+    fn new(map: HashMap<KeyCombination, KeyNode>) -> Self {
+        Self { map }
+    }
+}
+
 /// Main definition of editor keybindings
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Keybindings {
     /// Defines a keybinding for a reedline event
-    pub bindings: HashMap<KeyCombination, ReedlineEvent>,
+    pub bindings: Sequence,
 }
 
 impl Default for Keybindings {
@@ -28,7 +61,7 @@ impl Keybindings {
     /// New keybining
     pub fn new() -> Self {
         Self {
-            bindings: HashMap::new(),
+            bindings: Sequence::default(),
         }
     }
 
@@ -41,11 +74,15 @@ impl Keybindings {
     ///
     /// # Panics
     ///
+    /// If `key_combinations` is empty
+    ///
+    /// or
+    ///
     /// If `command` is an empty [`ReedlineEvent::UntilFound`]
     pub fn add_binding(
         &mut self,
-        modifier: KeyModifiers,
-        key_code: KeyCode,
+        start_key_combination: KeyCombination,
+        key_combinations: Vec<KeyCombination>,
         command: ReedlineEvent,
     ) {
         if let ReedlineEvent::UntilFound(subcommands) = &command {
@@ -55,14 +92,17 @@ impl Keybindings {
             );
         }
 
-        let key_combo = KeyCombination { modifier, key_code };
-        self.bindings.insert(key_combo, command);
+        let key_node = KeyNode::new(key_combinations, command);
+        match self.bindings.map.entry(start_key_combination) {
+            Entry::Occupied(mut occupied_entry) => occupied_entry.get_mut().merge(key_node),
+            Entry::Vacant(vacant_entry) => _ = vacant_entry.insert(key_node),
+        }
     }
 
     /// Find a keybinding based on the modifier and keycode
     pub fn find_binding(&self, modifier: KeyModifiers, key_code: KeyCode) -> Option<ReedlineEvent> {
         let key_combo = KeyCombination { modifier, key_code };
-        self.bindings.get(&key_combo).cloned()
+        todo!()
     }
 
     /// Remove a keybinding
@@ -70,16 +110,15 @@ impl Keybindings {
     /// Returns `Some(ReedlineEvent)` if the key combination was previously bound to a particular [`ReedlineEvent`]
     pub fn remove_binding(
         &mut self,
-        modifier: KeyModifiers,
-        key_code: KeyCode,
+        start_key_combination: KeyCombination,
+        key_combinations: Vec<KeyCombination>,
     ) -> Option<ReedlineEvent> {
-        let key_combo = KeyCombination { modifier, key_code };
-        self.bindings.remove(&key_combo)
+        todo!()
     }
 
     /// Get assigned keybindings
     pub fn get_keybindings(&self) -> &HashMap<KeyCombination, ReedlineEvent> {
-        &self.bindings
+        todo!()
     }
 }
 
@@ -96,12 +135,54 @@ pub fn add_common_control_bindings(kb: &mut Keybindings) {
     use KeyCode as KC;
     use KeyModifiers as KM;
 
-    kb.add_binding(KM::NONE, KC::Esc, ReedlineEvent::Esc);
-    kb.add_binding(KM::CONTROL, KC::Char('c'), ReedlineEvent::CtrlC);
-    kb.add_binding(KM::CONTROL, KC::Char('d'), ReedlineEvent::CtrlD);
-    kb.add_binding(KM::CONTROL, KC::Char('l'), ReedlineEvent::ClearScreen);
-    kb.add_binding(KM::CONTROL, KC::Char('r'), ReedlineEvent::SearchHistory);
-    kb.add_binding(KM::CONTROL, KC::Char('o'), ReedlineEvent::OpenEditor);
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::NONE,
+            key_code: KC::Esc,
+        },
+        vec![],
+        ReedlineEvent::Esc,
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('c'),
+        },
+        vec![],
+        ReedlineEvent::CtrlC,
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('d'),
+        },
+        vec![],
+        ReedlineEvent::CtrlD,
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('l'),
+        },
+        vec![],
+        ReedlineEvent::ClearScreen,
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('r'),
+        },
+        vec![],
+        ReedlineEvent::SearchHistory,
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('o'),
+        },
+        vec![],
+        ReedlineEvent::OpenEditor,
+    );
 }
 /// Add the arrow navigation and its `Ctrl` variants
 pub fn add_common_navigation_bindings(kb: &mut Keybindings) {
