@@ -2,7 +2,7 @@ use crate::{
     edit_mode::{
         keybindings::{
             add_common_control_bindings, add_common_edit_bindings, add_common_navigation_bindings,
-            add_common_selection_bindings, edit_bind, Keybindings,
+            add_common_selection_bindings, edit_bind, KeyCombination, Keybindings,
         },
         EditMode,
     },
@@ -24,18 +24,31 @@ pub fn default_emacs_keybindings() -> Keybindings {
     add_common_selection_bindings(&mut kb);
 
     // This could be in common, but in Vi it also changes the mode
-    kb.add_binding(KM::NONE, KC::Enter, ReedlineEvent::Enter);
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::NONE,
+            key_code: KC::Enter,
+        },
+        vec![],
+        ReedlineEvent::Enter,
+    );
 
     // *** CTRL ***
     // Moves
     kb.add_binding(
-        KM::CONTROL,
-        KC::Char('b'),
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('b'),
+        },
+        vec![],
         ReedlineEvent::UntilFound(vec![ReedlineEvent::MenuLeft, ReedlineEvent::Left]),
     );
     kb.add_binding(
-        KM::CONTROL,
-        KC::Char('f'),
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('f'),
+        },
+        vec![],
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::HistoryHintComplete,
             ReedlineEvent::MenuRight,
@@ -43,61 +56,163 @@ pub fn default_emacs_keybindings() -> Keybindings {
         ]),
     );
     // Undo/Redo
-    kb.add_binding(KM::CONTROL, KC::Char('g'), edit_bind(EC::Redo));
-    kb.add_binding(KM::CONTROL, KC::Char('z'), edit_bind(EC::Undo));
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('g'),
+        },
+        vec![],
+        edit_bind(EC::Redo),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('z'),
+        },
+        vec![],
+        edit_bind(EC::Undo),
+    );
     // Cutting
     kb.add_binding(
-        KM::CONTROL,
-        KC::Char('y'),
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('y'),
+        },
+        vec![],
         edit_bind(EC::PasteCutBufferBefore),
     );
-    kb.add_binding(KM::CONTROL, KC::Char('w'), edit_bind(EC::CutWordLeft));
-    kb.add_binding(KM::CONTROL, KC::Char('k'), edit_bind(EC::CutToLineEnd));
-    kb.add_binding(KM::CONTROL, KC::Char('u'), edit_bind(EC::CutFromStart));
-    kb.add_binding(KM::ALT, KC::Char('d'), edit_bind(EC::CutWordRight));
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('w'),
+        },
+        vec![],
+        edit_bind(EC::CutWordLeft),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('k'),
+        },
+        vec![],
+        edit_bind(EC::CutToLineEnd),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('u'),
+        },
+        vec![],
+        edit_bind(EC::CutFromStart),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Char('d'),
+        },
+        vec![],
+        edit_bind(EC::CutWordRight),
+    );
     // Edits
-    kb.add_binding(KM::CONTROL, KC::Char('t'), edit_bind(EC::SwapGraphemes));
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::CONTROL,
+            key_code: KC::Char('t'),
+        },
+        vec![],
+        edit_bind(EC::SwapGraphemes),
+    );
 
     // *** ALT ***
     // Moves
     kb.add_binding(
-        KM::ALT,
-        KC::Left,
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Left,
+        },
+        vec![],
         edit_bind(EC::MoveWordLeft { select: false }),
     );
     kb.add_binding(
-        KM::ALT,
-        KC::Right,
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Right,
+        },
+        vec![],
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::HistoryHintWordComplete,
             edit_bind(EC::MoveWordRight { select: false }),
         ]),
     );
     kb.add_binding(
-        KM::ALT,
-        KC::Char('b'),
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Char('b'),
+        },
+        vec![],
         edit_bind(EC::MoveWordLeft { select: false }),
     );
     kb.add_binding(
-        KM::ALT,
-        KC::Char('f'),
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Char('f'),
+        },
+        vec![],
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::HistoryHintWordComplete,
             edit_bind(EC::MoveWordRight { select: false }),
         ]),
     );
     // Edits
-    kb.add_binding(KM::ALT, KC::Delete, edit_bind(EC::DeleteWord));
-    kb.add_binding(KM::ALT, KC::Backspace, edit_bind(EC::BackspaceWord));
     kb.add_binding(
-        KM::ALT,
-        KC::Char('m'),
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Delete,
+        },
+        vec![],
+        edit_bind(EC::DeleteWord),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Backspace,
+        },
+        vec![],
+        edit_bind(EC::BackspaceWord),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Char('m'),
+        },
+        vec![],
         ReedlineEvent::Edit(vec![EditCommand::BackspaceWord]),
     );
     // Case changes
-    kb.add_binding(KM::ALT, KC::Char('u'), edit_bind(EC::UppercaseWord));
-    kb.add_binding(KM::ALT, KC::Char('l'), edit_bind(EC::LowercaseWord));
-    kb.add_binding(KM::ALT, KC::Char('c'), edit_bind(EC::CapitalizeChar));
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Char('u'),
+        },
+        vec![],
+        edit_bind(EC::UppercaseWord),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Char('l'),
+        },
+        vec![],
+        edit_bind(EC::LowercaseWord),
+    );
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::ALT,
+            key_code: KC::Char('c'),
+        },
+        vec![],
+        edit_bind(EC::CapitalizeChar),
+    );
 
     kb
 }
@@ -188,6 +303,8 @@ impl Emacs {
 
 #[cfg(test)]
 mod test {
+    use crate::edit_mode::keybindings::KeyCombination;
+
     use super::*;
     use pretty_assertions::assert_eq;
 
@@ -208,8 +325,11 @@ mod test {
     fn overriding_default_keybindings_works() {
         let mut keybindings = default_emacs_keybindings();
         keybindings.add_binding(
-            KeyModifiers::CONTROL,
-            KeyCode::Char('l'),
+            KeyCombination {
+                modifier: KeyModifiers::CONTROL,
+                key_code: KeyCode::Char('l'),
+            },
+            vec![],
             ReedlineEvent::HistoryHintComplete,
         );
 

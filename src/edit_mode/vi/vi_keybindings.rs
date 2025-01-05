@@ -4,7 +4,7 @@ use crate::{
     edit_mode::{
         keybindings::{
             add_common_control_bindings, add_common_edit_bindings, add_common_navigation_bindings,
-            add_common_selection_bindings, edit_bind,
+            add_common_selection_bindings, edit_bind, KeyCombination,
         },
         Keybindings,
     },
@@ -23,11 +23,21 @@ pub fn default_vi_normal_keybindings() -> Keybindings {
     add_common_selection_bindings(&mut kb);
     // Replicate vi's default behavior for Backspace and delete
     kb.add_binding(
-        KM::NONE,
-        KC::Backspace,
+        KeyCombination {
+            modifier: KM::NONE,
+            key_code: KC::Backspace,
+        },
+        vec![],
         edit_bind(EC::MoveLeft { select: false }),
     );
-    kb.add_binding(KM::NONE, KC::Delete, edit_bind(EC::Delete));
+    kb.add_binding(
+        KeyCombination {
+            modifier: KM::NONE,
+            key_code: KC::Delete,
+        },
+        vec![],
+        edit_bind(EC::Delete),
+    );
 
     kb
 }

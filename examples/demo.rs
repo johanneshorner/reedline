@@ -17,7 +17,7 @@ use {
 
 #[cfg(not(any(feature = "sqlite", feature = "sqlite-dynlib")))]
 use reedline::FileBackedHistory;
-use reedline::{CursorConfig, MenuBuilder};
+use reedline::{CursorConfig, KeyCombination, MenuBuilder};
 
 #[derive(Parser)]
 struct Args {
@@ -243,8 +243,11 @@ fn main() -> reedline::Result<()> {
 
 fn add_menu_keybindings(keybindings: &mut Keybindings) {
     keybindings.add_binding(
-        KeyModifiers::CONTROL,
-        KeyCode::Char('x'),
+        KeyCombination {
+            modifier: KeyModifiers::CONTROL,
+            key_code: KeyCode::Char('x'),
+        },
+        vec![],
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("history_menu".to_string()),
             ReedlineEvent::MenuPageNext,
@@ -252,14 +255,20 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     );
 
     keybindings.add_binding(
-        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
-        KeyCode::Char('x'),
+        KeyCombination {
+            modifier: KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+            key_code: KeyCode::Char('x'),
+        },
+        vec![],
         ReedlineEvent::MenuPagePrevious,
     );
 
     keybindings.add_binding(
-        KeyModifiers::NONE,
-        KeyCode::Tab,
+        KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Tab,
+        },
+        vec![],
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("completion_menu".to_string()),
             ReedlineEvent::MenuNext,
@@ -268,8 +277,11 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     );
 
     keybindings.add_binding(
-        KeyModifiers::SHIFT,
-        KeyCode::BackTab,
+        KeyCombination {
+            modifier: KeyModifiers::SHIFT,
+            key_code: KeyCode::BackTab,
+        },
+        vec![],
         ReedlineEvent::MenuPrevious,
     );
 }
@@ -277,8 +289,11 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
 fn add_newline_keybinding(keybindings: &mut Keybindings) {
     // This doesn't work for macOS
     keybindings.add_binding(
-        KeyModifiers::ALT,
-        KeyCode::Enter,
+        KeyCombination {
+            modifier: KeyModifiers::ALT,
+            key_code: KeyCode::Enter,
+        },
+        vec![],
         ReedlineEvent::Edit(vec![EditCommand::InsertNewline]),
     );
 }
