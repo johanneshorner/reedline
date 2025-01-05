@@ -52,7 +52,7 @@ impl KeyNode {
                 }
                 sequence.map.extend(other_sequence.map.drain());
             }
-            (_, other @ _) => *self = other,
+            (_, other) => *self = other,
         }
     }
 }

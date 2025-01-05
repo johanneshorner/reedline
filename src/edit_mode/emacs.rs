@@ -11,6 +11,8 @@ use crate::{
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
+use super::keybindings::{KeyNode, PartialKeySequence};
+
 /// Returns the current default emacs keybindings
 pub fn default_emacs_keybindings() -> Keybindings {
     use EditCommand as EC;
@@ -220,12 +222,83 @@ pub fn default_emacs_keybindings() -> Keybindings {
 /// This parses the incoming Events like a emacs style-editor
 pub struct Emacs {
     keybindings: Keybindings,
+    partial_key_sequence: Option<PartialKeySequence>,
 }
 
 impl Default for Emacs {
     fn default() -> Self {
         Emacs {
             keybindings: default_emacs_keybindings(),
+            partial_key_sequence: None,
+        }
+    }
+}
+
+impl Emacs {
+    /// Emacs style input parsing constructor if you want to use custom keybindings
+    pub const fn new(keybindings: Keybindings) -> Self {
+        Emacs {
+            keybindings,
+            partial_key_sequence: None,
+        }
+    }
+
+    fn handle_binding(
+        &mut self,
+        modifier: KeyModifiers,
+        key_code: KeyCode,
+    ) -> Option<ReedlineEvent> {
+        let Some(mut partial_key_sequence) = self.partial_key_sequence.take() else {
+            return match self.keybindings.find_binding(modifier, key_code)? {
+                KeyNode::Sequence(sequence) => {
+                    self.partial_key_sequence = Some(PartialKeySequence {
+                        sequence,
+                        history: if let KeyCode::Char(c) = key_code {
+                            vec![if modifier == KeyModifiers::SHIFT {
+                                c.to_ascii_uppercase()
+                            } else {
+                                c
+                            }]
+                        } else {
+                            vec![]
+                        },
+                    });
+                    Some(ReedlineEvent::None)
+                }
+                KeyNode::Event(reedline_event) => Some(reedline_event),
+            };
+        };
+
+        if let KeyCode::Char(c) = key_code {
+            partial_key_sequence
+                .history
+                .push(if modifier == KeyModifiers::SHIFT {
+                    c.to_ascii_uppercase()
+                } else {
+                    c
+                })
+        }
+
+        match partial_key_sequence
+            .sequence
+            .map
+            .remove(&KeyCombination { modifier, key_code })
+        {
+            Some(KeyNode::Event(reedline_event)) => Some(reedline_event),
+            Some(KeyNode::Sequence(sequence)) => {
+                self.partial_key_sequence = Some(PartialKeySequence {
+                    sequence,
+                    history: partial_key_sequence.history,
+                });
+                Some(ReedlineEvent::None)
+            }
+            None => Some(ReedlineEvent::Edit(
+                partial_key_sequence
+                    .history
+                    .into_iter()
+                    .map(EditCommand::InsertChar)
+                    .collect(),
+            )),
         }
     }
 }
@@ -250,8 +323,7 @@ impl EditMode for Emacs {
                         _ => c.to_ascii_lowercase(),
                     };
 
-                    self.keybindings
-                        .find_binding(modifier, KeyCode::Char(c))
+                    self.handle_binding(modifier, KeyCode::Char(c))
                         .unwrap_or_else(|| {
                             if modifier == KeyModifiers::NONE
                                 || modifier == KeyModifiers::SHIFT
@@ -274,8 +346,7 @@ impl EditMode for Emacs {
                         })
                 }
                 _ => self
-                    .keybindings
-                    .find_binding(modifiers, code)
+                    .handle_binding(modifiers, code)
                     .unwrap_or(ReedlineEvent::None),
             },
 
@@ -291,13 +362,6 @@ impl EditMode for Emacs {
 
     fn edit_mode(&self) -> PromptEditMode {
         PromptEditMode::Emacs
-    }
-}
-
-impl Emacs {
-    /// Emacs style input parsing constructor if you want to use custom keybindings
-    pub const fn new(keybindings: Keybindings) -> Self {
-        Emacs { keybindings }
     }
 }
 

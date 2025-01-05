@@ -300,19 +300,27 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
     keybindings.add_binding(
         KeyCombination {
             modifier: KeyModifiers::NONE,
-            key_code: KeyCode::Char('o'),
+            key_code: KeyCode::Char('h'),
         },
         vec![
             KeyCombination {
                 modifier: KeyModifiers::NONE,
-                key_code: KeyCode::Char('v'),
+                key_code: KeyCode::Char('e'),
             },
             KeyCombination {
                 modifier: KeyModifiers::NONE,
-                key_code: KeyCode::Char('b'),
+                key_code: KeyCode::Char('l'),
+            },
+            KeyCombination {
+                modifier: KeyModifiers::NONE,
+                key_code: KeyCode::Char('l'),
+            },
+            KeyCombination {
+                modifier: KeyModifiers::NONE,
+                key_code: KeyCode::Char('o'),
             },
         ],
-        ReedlineEvent::InsertMode,
+        ReedlineEvent::Edit("world".chars().map(EditCommand::InsertChar).collect()),
     );
 }
 
