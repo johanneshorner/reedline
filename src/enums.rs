@@ -644,6 +644,12 @@ pub enum ReedlineEvent {
 
     /// Open text editor
     OpenEditor,
+
+    /// Activate insert mode
+    InsertMode,
+
+    /// Activate normal mode
+    NormalMode,
 }
 
 impl Display for ReedlineEvent {
@@ -687,6 +693,8 @@ impl Display for ReedlineEvent {
             ReedlineEvent::MenuPagePrevious => write!(f, "MenuPagePrevious"),
             ReedlineEvent::ExecuteHostCommand(_) => write!(f, "ExecuteHostCommand"),
             ReedlineEvent::OpenEditor => write!(f, "OpenEditor"),
+            ReedlineEvent::InsertMode => write!(f, "InsertMode"),
+            ReedlineEvent::NormalMode => write!(f, "NormalMode"),
         }
     }
 }

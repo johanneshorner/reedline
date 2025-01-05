@@ -5,9 +5,22 @@ use {
     std::collections::{hash_map::Entry, HashMap},
 };
 
+#[derive(Debug)]
+/// Tracks completion of a key sequence
+pub struct PartialKeySequence {
+    /// The not yet pressed part of the sequence + ReedlineEvent
+    pub sequence: Sequence,
+    /// The history of pressed `KeyCode::Char`
+    pub history: Vec<char>,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
+/// Represents a modifier/key combination
 pub struct KeyCombination {
+    /// Modifier (Shift, Control, etc.) of the key combination
     pub modifier: KeyModifiers,
+
+    /// Key
     pub key_code: KeyCode,
 }
 
@@ -47,7 +60,7 @@ impl KeyNode {
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct Sequence {
     // name: Option<String>,
-    map: HashMap<KeyCombination, KeyNode>,
+    pub map: HashMap<KeyCombination, KeyNode>,
 }
 
 /// Main definition of editor keybindings
@@ -106,13 +119,9 @@ impl Keybindings {
     }
 
     /// Find a keybinding based on the modifier and keycode
-    pub fn find_binding(&self, modifier: KeyModifiers, key_code: KeyCode) -> Option<ReedlineEvent> {
+    pub fn find_binding(&self, modifier: KeyModifiers, key_code: KeyCode) -> Option<KeyNode> {
         let key_combo = KeyCombination { modifier, key_code };
-        match self.bindings.map.get(&key_combo) {
-            Some(KeyNode::Event(event)) => Some(event.clone()),
-            Some(_) => todo!(),
-            None => None,
-        }
+        self.bindings.map.get(&key_combo).cloned()
     }
 
     /// Remove a keybinding

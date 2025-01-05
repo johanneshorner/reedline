@@ -284,6 +284,36 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         vec![],
         ReedlineEvent::MenuPrevious,
     );
+
+    keybindings.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Char('j'),
+        },
+        vec![KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Char('k'),
+        }],
+        ReedlineEvent::NormalMode,
+    );
+
+    keybindings.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Char('o'),
+        },
+        vec![
+            KeyCombination {
+                modifier: KeyModifiers::NONE,
+                key_code: KeyCode::Char('v'),
+            },
+            KeyCombination {
+                modifier: KeyModifiers::NONE,
+                key_code: KeyCode::Char('b'),
+            },
+        ],
+        ReedlineEvent::InsertMode,
+    );
 }
 
 fn add_newline_keybinding(keybindings: &mut Keybindings) {
