@@ -17,7 +17,10 @@ use {
 
 #[cfg(not(any(feature = "sqlite", feature = "sqlite-dynlib")))]
 use reedline::FileBackedHistory;
-use reedline::{CursorConfig, KeyCombination, MenuBuilder};
+use reedline::{
+    default_helix_insert_keybindings, default_helix_normal_keybindings, CursorConfig, Helix,
+    KeyCombination, MenuBuilder,
+};
 
 #[derive(Parser)]
 struct Args {
@@ -29,6 +32,7 @@ struct Args {
 enum Mode {
     Emacs,
     Vi,
+    Helix,
 }
 
 fn main() -> reedline::Result<()> {
@@ -89,6 +93,8 @@ fn main() -> reedline::Result<()> {
     let cursor_config = CursorConfig {
         vi_insert: Some(SetCursorStyle::BlinkingBar),
         vi_normal: Some(SetCursorStyle::SteadyBlock),
+        helix_insert: Some(SetCursorStyle::BlinkingBar),
+        helix_normal: Some(SetCursorStyle::SteadyBlock),
         emacs: None,
     };
 
@@ -136,6 +142,24 @@ fn main() -> reedline::Result<()> {
             add_newline_keybinding(&mut insert_keybindings);
 
             Box::new(Vi::new(insert_keybindings, normal_keybindings))
+        }
+        Mode::Helix => {
+            let normal_keybindings = default_helix_normal_keybindings();
+            let mut insert_keybindings = default_helix_insert_keybindings();
+
+            insert_keybindings.add_binding(
+                KeyCombination {
+                    modifier: KeyModifiers::NONE,
+                    key_code: KeyCode::Char('j'),
+                },
+                vec![KeyCombination {
+                    modifier: KeyModifiers::NONE,
+                    key_code: KeyCode::Char('k'),
+                }],
+                ReedlineEvent::NormalMode,
+            );
+
+            Box::new(Helix::new(insert_keybindings, normal_keybindings))
         }
     };
 
@@ -283,44 +307,6 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         },
         vec![],
         ReedlineEvent::MenuPrevious,
-    );
-
-    keybindings.add_binding(
-        KeyCombination {
-            modifier: KeyModifiers::NONE,
-            key_code: KeyCode::Char('j'),
-        },
-        vec![KeyCombination {
-            modifier: KeyModifiers::NONE,
-            key_code: KeyCode::Char('k'),
-        }],
-        ReedlineEvent::NormalMode,
-    );
-
-    keybindings.add_binding(
-        KeyCombination {
-            modifier: KeyModifiers::NONE,
-            key_code: KeyCode::Char('h'),
-        },
-        vec![
-            KeyCombination {
-                modifier: KeyModifiers::NONE,
-                key_code: KeyCode::Char('e'),
-            },
-            KeyCombination {
-                modifier: KeyModifiers::NONE,
-                key_code: KeyCode::Char('l'),
-            },
-            KeyCombination {
-                modifier: KeyModifiers::NONE,
-                key_code: KeyCode::Char('l'),
-            },
-            KeyCombination {
-                modifier: KeyModifiers::NONE,
-                key_code: KeyCode::Char('o'),
-            },
-        ],
-        ReedlineEvent::Edit("world".chars().map(EditCommand::InsertChar).collect()),
     );
 }
 

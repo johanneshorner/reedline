@@ -252,14 +252,15 @@ pub use history::{
 
 mod prompt;
 pub use prompt::{
-    DefaultPrompt, DefaultPromptSegment, Prompt, PromptEditMode, PromptHistorySearch,
-    PromptHistorySearchStatus, PromptViMode,
+    DefaultPrompt, DefaultPromptSegment, Prompt, PromptEditMode, PromptHelixMode,
+    PromptHistorySearch, PromptHistorySearchStatus, PromptViMode,
 };
 
 mod edit_mode;
 pub use edit_mode::{
-    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    CursorConfig, EditMode, Emacs, KeyCombination, Keybindings, Vi,
+    default_emacs_keybindings, default_helix_insert_keybindings, default_helix_normal_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings, CursorConfig, EditMode, Emacs,
+    Helix, KeyCombination, Keybindings, Vi,
 };
 
 mod highlighter;

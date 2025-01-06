@@ -1,6 +1,7 @@
 use crate::{
-    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
-    EditCommand, Keybindings, PromptEditMode, ReedlineEvent,
+    default_emacs_keybindings, default_helix_insert_keybindings, default_helix_normal_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings, EditCommand, Keybindings,
+    PromptEditMode, ReedlineEvent,
 };
 use crossterm::event::KeyCode;
 use std::fmt::{Display, Formatter};
@@ -119,6 +120,8 @@ pub fn get_reedline_default_keybindings() -> Vec<(String, String, String, String
         ("emacs", default_emacs_keybindings()),
         ("vi_normal", default_vi_normal_keybindings()),
         ("vi_insert", default_vi_insert_keybindings()),
+        ("helix_normal", default_helix_normal_keybindings()),
+        ("helix_insert", default_helix_insert_keybindings()),
     ];
 
     options

@@ -1,5 +1,7 @@
 use crate::{Prompt, PromptEditMode, PromptHistorySearch, PromptHistorySearchStatus, PromptViMode};
 
+use super::base::PromptHelixMode;
+
 use {
     chrono::Local,
     std::{borrow::Cow, env},
@@ -9,6 +11,8 @@ use {
 pub static DEFAULT_PROMPT_INDICATOR: &str = "〉";
 pub static DEFAULT_VI_INSERT_PROMPT_INDICATOR: &str = ": ";
 pub static DEFAULT_VI_NORMAL_PROMPT_INDICATOR: &str = "〉";
+pub static DEFAULT_HELIX_INSERT_PROMPT_INDICATOR: &str = ": ";
+pub static DEFAULT_HELIX_NORMAL_PROMPT_INDICATOR: &str = "〉";
 pub static DEFAULT_MULTILINE_INDICATOR: &str = "::: ";
 
 /// Simple [`Prompt`] displaying a configurable left and a right prompt.
@@ -65,6 +69,10 @@ impl Prompt for DefaultPrompt {
             PromptEditMode::Vi(vi_mode) => match vi_mode {
                 PromptViMode::Normal => DEFAULT_VI_NORMAL_PROMPT_INDICATOR.into(),
                 PromptViMode::Insert => DEFAULT_VI_INSERT_PROMPT_INDICATOR.into(),
+            },
+            PromptEditMode::Helix(helix_mode) => match helix_mode {
+                PromptHelixMode::Normal => DEFAULT_HELIX_NORMAL_PROMPT_INDICATOR.into(),
+                PromptHelixMode::Insert => DEFAULT_HELIX_INSERT_PROMPT_INDICATOR.into(),
             },
             PromptEditMode::Custom(str) => format!("({str})").into(),
         }

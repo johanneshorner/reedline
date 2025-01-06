@@ -8,6 +8,10 @@ pub struct CursorConfig {
     pub vi_insert: Option<SetCursorStyle>,
     /// The cursor to be used when in vi normal mode
     pub vi_normal: Option<SetCursorStyle>,
+    /// The cursor to be used when in helix insert mode
+    pub helix_insert: Option<SetCursorStyle>,
+    /// The cursor to be used when in helix normal mode
+    pub helix_normal: Option<SetCursorStyle>,
     /// The cursor to be used when in emacs mode
     pub emacs: Option<SetCursorStyle>,
 }

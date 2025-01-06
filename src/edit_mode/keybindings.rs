@@ -93,10 +93,6 @@ impl Keybindings {
     ///
     /// # Panics
     ///
-    /// If `key_combinations` is empty
-    ///
-    /// or
-    ///
     /// If `command` is an empty [`ReedlineEvent::UntilFound`]
     pub fn add_binding(
         &mut self,

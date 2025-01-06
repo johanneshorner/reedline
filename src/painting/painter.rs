@@ -1,4 +1,4 @@
-use crate::{CursorConfig, PromptEditMode, PromptViMode};
+use crate::{CursorConfig, PromptEditMode, PromptHelixMode, PromptViMode};
 
 use {
     super::utils::{coerce_crlf, line_width},
@@ -261,6 +261,8 @@ impl Painter {
                 PromptEditMode::Emacs => shapes.emacs,
                 PromptEditMode::Vi(PromptViMode::Insert) => shapes.vi_insert,
                 PromptEditMode::Vi(PromptViMode::Normal) => shapes.vi_normal,
+                PromptEditMode::Helix(PromptHelixMode::Insert) => shapes.helix_insert,
+                PromptEditMode::Helix(PromptHelixMode::Normal) => shapes.helix_normal,
                 _ => None,
             };
             if let Some(shape) = shape {
