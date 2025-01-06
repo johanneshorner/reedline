@@ -19,7 +19,7 @@ use {
 use reedline::FileBackedHistory;
 use reedline::{
     default_helix_insert_keybindings, default_helix_normal_keybindings, CursorConfig, Helix,
-    KeyCombination, MenuBuilder,
+    HelixEvent, KeyCombination, MenuBuilder,
 };
 
 #[derive(Parser)]
@@ -156,7 +156,7 @@ fn main() -> reedline::Result<()> {
                     modifier: KeyModifiers::NONE,
                     key_code: KeyCode::Char('k'),
                 }],
-                ReedlineEvent::NormalMode,
+                ReedlineEvent::Helix(HelixEvent::NormalMode),
             );
 
             Box::new(Helix::new(insert_keybindings, normal_keybindings))

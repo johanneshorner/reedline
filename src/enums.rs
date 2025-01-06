@@ -522,6 +522,64 @@ impl UndoBehavior {
     }
 }
 
+// TODO Maybe move this to edit_mode/helix/events.rs
+/// Helix normal mode specific events.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Default)]
+pub enum HelixNormal {
+    #[default]
+    /// Activate insert mode
+    InsertMode,
+
+    /// Activate select mode
+    SelectMode,
+
+    /// Move cursor <n> characters left
+    MoveCharLeft,
+
+    /// Move cursor <n> lines down
+    MoveVisualLineDown,
+
+    /// Move cursor <n> lines up
+    MoveVisualLineUp,
+
+    /// Move cursor <n> characters right
+    MoveCharRight,
+}
+
+impl Display for HelixNormal {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            HelixNormal::InsertMode => write!(f, "InsertMode"),
+            HelixNormal::SelectMode => write!(f, "SelectMode"),
+            HelixNormal::MoveCharLeft => write!(f, "MoveCharLeft"),
+            HelixNormal::MoveVisualLineDown => write!(f, "MoveVisualLineDown"),
+            HelixNormal::MoveVisualLineUp => write!(f, "MoveVisualLineUp"),
+            HelixNormal::MoveCharRight => write!(f, "MoveCharRight"),
+        }
+    }
+}
+
+// TODO Maybe move this to edit_mode/helix/events.rs
+/// Helix mode specific events.
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, Default)]
+pub enum HelixEvent {
+    #[default]
+    /// Activate normal mode
+    NormalMode,
+
+    /// Normal mode specific events
+    Normal(HelixNormal),
+}
+
+impl Display for HelixEvent {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            HelixEvent::NormalMode => write!(f, "NormalMode"),
+            HelixEvent::Normal(helix_normal) => write!(f, "HelixNormal({helix_normal})"),
+        }
+    }
+}
+
 /// Reedline supported actions.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug, EnumIter)]
 pub enum ReedlineEvent {
@@ -645,11 +703,8 @@ pub enum ReedlineEvent {
     /// Open text editor
     OpenEditor,
 
-    /// Activate insert mode
-    InsertMode,
-
-    /// Activate normal mode
-    NormalMode,
+    /// Helix mode specific events
+    Helix(HelixEvent),
 }
 
 impl Display for ReedlineEvent {
@@ -693,8 +748,7 @@ impl Display for ReedlineEvent {
             ReedlineEvent::MenuPagePrevious => write!(f, "MenuPagePrevious"),
             ReedlineEvent::ExecuteHostCommand(_) => write!(f, "ExecuteHostCommand"),
             ReedlineEvent::OpenEditor => write!(f, "OpenEditor"),
-            ReedlineEvent::InsertMode => write!(f, "InsertMode"),
-            ReedlineEvent::NormalMode => write!(f, "NormalMode"),
+            ReedlineEvent::Helix(helix_event) => write!(f, "HelixEvent({helix_event})"),
         }
     }
 }

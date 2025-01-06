@@ -230,7 +230,9 @@ pub use core_editor::Editor;
 pub use core_editor::LineBuffer;
 
 mod enums;
-pub use enums::{EditCommand, ReedlineEvent, ReedlineRawEvent, Signal, UndoBehavior};
+pub use enums::{
+    EditCommand, HelixEvent, HelixNormal, ReedlineEvent, ReedlineRawEvent, Signal, UndoBehavior,
+};
 
 mod painting;
 pub use painting::{Painter, StyledText};

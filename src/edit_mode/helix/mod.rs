@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     edit_mode::keybindings::Keybindings,
-    enums::{EditCommand, ReedlineEvent, ReedlineRawEvent},
+    enums::{EditCommand, HelixEvent, HelixNormal, ReedlineEvent, ReedlineRawEvent},
     PromptEditMode, PromptHelixMode,
 };
 
@@ -121,13 +121,60 @@ impl Helix {
             }
         };
 
-        match event {
-            ReedlineEvent::InsertMode => _ = self.mode = Mode::Insert,
-            ReedlineEvent::NormalMode => _ = self.mode = Mode::Normal(None),
-            _ => {}
+        if let ReedlineEvent::Helix(helix_event) = event {
+            match helix_event {
+                HelixEvent::NormalMode => {
+                    let prev_mode = self.mode;
+                    self.mode = Mode::Normal(None);
+                    if matches!(prev_mode, Mode::Insert) {
+                        ReedlineEvent::Repaint
+                    } else {
+                        ReedlineEvent::None
+                    }
+                }
+                HelixEvent::Normal(helix_normal) => {
+                    if let Mode::Normal(minor_mode) = self.mode {
+                        let select = matches!(minor_mode, Some(MinorMode::Select));
+                        match helix_normal {
+                            HelixNormal::InsertMode => {
+                                self.mode = Mode::Insert;
+                                ReedlineEvent::Repaint
+                            }
+                            HelixNormal::SelectMode => {
+                                if matches!(self.mode, Mode::Normal(Some(MinorMode::Select))) {
+                                    // TODO create extra bindings for minor mode
+                                    self.mode = Mode::Normal(None);
+                                } else {
+                                    self.mode = Mode::Normal(Some(MinorMode::Select));
+                                }
+                                ReedlineEvent::None
+                            }
+                            HelixNormal::MoveCharLeft => ReedlineEvent::UntilFound(vec![
+                                ReedlineEvent::MenuLeft,
+                                ReedlineEvent::Edit(vec![EditCommand::MoveLeft { select }]),
+                            ]),
+                            HelixNormal::MoveVisualLineDown => ReedlineEvent::UntilFound(vec![
+                                ReedlineEvent::MenuDown,
+                                ReedlineEvent::Down,
+                            ]),
+                            HelixNormal::MoveVisualLineUp => ReedlineEvent::UntilFound(vec![
+                                ReedlineEvent::MenuUp,
+                                ReedlineEvent::Up,
+                            ]),
+                            HelixNormal::MoveCharRight => ReedlineEvent::UntilFound(vec![
+                                ReedlineEvent::HistoryHintComplete,
+                                ReedlineEvent::MenuRight,
+                                ReedlineEvent::Edit(vec![EditCommand::MoveRight { select }]),
+                            ]),
+                        }
+                    } else {
+                        ReedlineEvent::None
+                    }
+                }
+            }
+        } else {
+            event
         }
-
-        event
     }
 }
 

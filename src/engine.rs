@@ -925,8 +925,7 @@ impl Reedline {
             | ReedlineEvent::MenuRight
             | ReedlineEvent::MenuPageNext
             | ReedlineEvent::MenuPagePrevious
-            | ReedlineEvent::InsertMode
-            | ReedlineEvent::NormalMode => Ok(EventStatus::Inapplicable),
+            | ReedlineEvent::Helix(_) => Ok(EventStatus::Inapplicable),
         }
     }
 
@@ -1270,33 +1269,9 @@ impl Reedline {
                 // Exhausting the event handlers is still considered handled
                 Ok(EventStatus::Inapplicable)
             }
-            ReedlineEvent::InsertMode => {
-                let reedline_event = self.edit_mode.parse_event(
-                    Event::Key(KeyEvent {
-                        code: KeyCode::Char('i'),
-                        modifiers: KeyModifiers::empty(),
-                        kind: event::KeyEventKind::Press,
-                        state: event::KeyEventState::empty(),
-                    })
-                    .try_into()
-                    .expect("we construct a valid event"),
-                );
-                self.handle_editor_event(prompt, reedline_event)
+            ReedlineEvent::None | ReedlineEvent::Mouse | ReedlineEvent::Helix(_) => {
+                Ok(EventStatus::Inapplicable)
             }
-            ReedlineEvent::NormalMode => {
-                let reedline_event = self.edit_mode.parse_event(
-                    Event::Key(KeyEvent {
-                        code: KeyCode::Esc,
-                        modifiers: KeyModifiers::empty(),
-                        kind: event::KeyEventKind::Press,
-                        state: event::KeyEventState::empty(),
-                    })
-                    .try_into()
-                    .expect("we construct a valid event"),
-                );
-                self.handle_editor_event(prompt, reedline_event)
-            }
-            ReedlineEvent::None | ReedlineEvent::Mouse => Ok(EventStatus::Inapplicable),
         }
     }
 
