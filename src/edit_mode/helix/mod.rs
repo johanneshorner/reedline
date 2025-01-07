@@ -1,10 +1,15 @@
 mod keybindings;
+use std::{collections::HashMap, fmt::UpperExp, num::NonZeroUsize};
+use std::{collections::HashMap, num::NonZeroUsize};
+
 pub use keybindings::{default_helix_insert_keybindings, default_helix_normal_keybindings};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
 use super::{
-    keybindings::{KeyNode, PartialKeySequence},
+    keybindings::{
+        to_lowercase_key_code, KeyNode, KeySequenceResult, PartialKeySequence, Sequence,
+    },
     EditMode, KeyCombination,
 };
 use crate::{
@@ -30,6 +35,7 @@ pub struct Helix {
     insert_keybindings: Keybindings,
     normal_keybindings: Keybindings,
     mode: Mode,
+    count: Option<usize>,
     partial_key_sequence: Option<PartialKeySequence>,
 }
 
@@ -39,16 +45,9 @@ impl Default for Helix {
             insert_keybindings: Keybindings::default(),
             normal_keybindings: Keybindings::default(),
             mode: Mode::Insert,
+            count: None,
             partial_key_sequence: None,
         }
-    }
-}
-
-fn to_lowercase_key_code(key_code: KeyCode) -> KeyCode {
-    if let KeyCode::Char(c) = key_code {
-        KeyCode::Char(c.to_ascii_lowercase())
-    } else {
-        key_code
     }
 }
 
@@ -62,119 +61,138 @@ impl Helix {
         }
     }
 
-    fn handle_binding(&mut self, modifiers: KeyModifiers, key_code: KeyCode) -> ReedlineEvent {
-        let event = if let Some(mut partial_key_sequence) = self.partial_key_sequence.take() {
-            if let KeyCode::Char(c) = key_code {
-                partial_key_sequence.history.push(c);
-            }
-            match partial_key_sequence.sequence.map.remove(&KeyCombination {
-                modifier: modifiers,
-                key_code: to_lowercase_key_code(key_code),
-            }) {
-                Some(KeyNode::Event(reedline_event)) => reedline_event,
-                Some(KeyNode::Sequence(sequence)) => {
-                    self.partial_key_sequence = Some(PartialKeySequence {
-                        sequence,
-                        history: partial_key_sequence.history,
-                    });
-                    ReedlineEvent::None
-                }
-                None => match self.mode {
-                    Mode::Normal(_) => ReedlineEvent::None,
-                    Mode::Insert => ReedlineEvent::Edit(
-                        partial_key_sequence
-                            .history
-                            .into_iter()
-                            .map(EditCommand::InsertChar)
-                            .collect(),
-                    ),
+    fn set_mode(&mut self, mode: Mode) {
+        self.mode = mode;
+        self.count = None;
+        self.partial_key_sequence = None;
+    }
+
+    fn active_bindings(&self) -> &Keybindings {
+        match self.mode {
+            Mode::Normal(_) => &self.normal_keybindings,
+            Mode::Insert => &self.insert_keybindings,
+        }
+    }
+
+    fn cancel_key_sequence(
+        &mut self,
+        keycombinations: Vec<KeyCombination>,
+    ) -> Option<ReedlineEvent> {
+        self.count = None;
+        let events: Vec<ReedlineEvent> = keycombinations
+            .into_iter()
+            .flat_map(|kc| match kc {
+                KeyCombination {
+                    modifier: KeyModifiers::SHIFT | KeyModifiers::NONE,
+                    key_code: KeyCode::Char(c),
+                } => matches!(self.mode, Mode::Insert)
+                    .then(|| ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)])),
+                _ => match self
+                    .active_bindings()
+                    .find_binding(kc.modifier, to_lowercase_key_code(kc.key_code))?
+                {
+                    KeyNode::Event(ReedlineEvent::Helix(event)) => self.handle_helix_event(event),
+                    KeyNode::Event(event) => Some(event),
+                    KeyNode::Sequence(_) => unreachable!(""),
                 },
-            }
-        } else {
-            let keybindings = match self.mode {
-                Mode::Normal(_) => &self.normal_keybindings,
-                Mode::Insert => &self.insert_keybindings,
+            })
+            .collect();
+
+        (!events.is_empty()).then(|| ReedlineEvent::Multiple(events))
+    }
+
+    fn handle_binding(&mut self, kc: KeyCombination) -> Option<ReedlineEvent> {
+        if matches!(kc.key_code, KeyCode::Esc) {
+            return if let Some(partial) = self.partial_key_sequence.take() {
+                self.cancel_key_sequence(partial.cancel())
+            } else {
+                self.handle_helix_event(HelixEvent::NormalMode)
             };
-            match keybindings.find_binding(modifiers, to_lowercase_key_code(key_code)) {
-                Some(KeyNode::Sequence(sequence)) => {
-                    self.partial_key_sequence = Some(PartialKeySequence {
-                        sequence,
-                        history: if let KeyCode::Char(c) = key_code {
-                            vec![c]
-                        } else {
-                            vec![]
-                        },
-                    });
+        }
+
+        let Some(mut partial_key_sequence) = self.partial_key_sequence.take().or_else(|| {
+            self.active_bindings()
+                .find_binding(kc.modifier, to_lowercase_key_code(kc.key_code))
+                .map(|key_node| {
+                    PartialKeySequence::new(Sequence {
+                        map: HashMap::from([(kc.clone(), key_node)]),
+                    })
+                })
+        }) else {
+            return if let (Mode::Insert, KeyCode::Char(c)) = (self.mode, kc.key_code) {
+                Some(ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)]))
+            } else {
+                None
+            };
+        };
+        match partial_key_sequence.advance(kc) {
+            KeySequenceResult::Pending => {
+                self.partial_key_sequence = Some(partial_key_sequence);
+                None
+            }
+            KeySequenceResult::Matched(ReedlineEvent::Helix(event)) => {
+                self.handle_helix_event(event)
+            }
+            KeySequenceResult::Matched(reedline_event) => Some(reedline_event),
+            KeySequenceResult::Cancelled(keycombinations) => {
+                self.cancel_key_sequence(keycombinations)
+            }
+        }
+    }
+
+    fn handle_helix_event(&mut self, event: HelixEvent) -> Option<ReedlineEvent> {
+        let event = match event {
+            HelixEvent::NormalMode => {
+                let prev_mode = self.mode;
+                self.set_mode(Mode::Normal(None));
+                if matches!(prev_mode, Mode::Insert) {
+                    ReedlineEvent::Repaint
+                } else {
                     ReedlineEvent::None
                 }
-                Some(KeyNode::Event(reedline_event)) => reedline_event,
-                None => match self.mode {
-                    Mode::Normal(_) => ReedlineEvent::None,
-                    Mode::Insert => {
-                        if let KeyCode::Char(c) = key_code {
-                            ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)])
-                        } else {
+            }
+            HelixEvent::Normal(helix_normal) => {
+                if let Mode::Normal(minor_mode) = self.mode {
+                    let select = matches!(minor_mode, Some(MinorMode::Select));
+                    match helix_normal {
+                        HelixNormal::InsertMode => {
+                            self.set_mode(Mode::Insert);
+                            ReedlineEvent::Repaint
+                        }
+                        HelixNormal::SelectMode => {
+                            if matches!(self.mode, Mode::Normal(Some(MinorMode::Select))) {
+                                // TODO create extra bindings for minor mode
+                                self.set_mode(Mode::Normal(None));
+                            } else {
+                                self.set_mode(Mode::Normal(Some(MinorMode::Select)));
+                            }
                             ReedlineEvent::None
                         }
+                        HelixNormal::MoveCharLeft => ReedlineEvent::UntilFound(vec![
+                            ReedlineEvent::MenuLeft,
+                            ReedlineEvent::Edit(vec![EditCommand::MoveLeft { select }]),
+                        ]),
+                        HelixNormal::MoveVisualLineDown => ReedlineEvent::UntilFound(vec![
+                            ReedlineEvent::MenuDown,
+                            ReedlineEvent::Down,
+                        ]),
+                        HelixNormal::MoveVisualLineUp => ReedlineEvent::UntilFound(vec![
+                            ReedlineEvent::MenuUp,
+                            ReedlineEvent::Up,
+                        ]),
+                        HelixNormal::MoveCharRight => ReedlineEvent::UntilFound(vec![
+                            ReedlineEvent::HistoryHintComplete,
+                            ReedlineEvent::MenuRight,
+                            ReedlineEvent::Edit(vec![EditCommand::MoveRight { select }]),
+                        ]),
                     }
-                },
+                } else {
+                    ReedlineEvent::None
+                }
             }
         };
 
-        if let ReedlineEvent::Helix(helix_event) = event {
-            match helix_event {
-                HelixEvent::NormalMode => {
-                    let prev_mode = self.mode;
-                    self.mode = Mode::Normal(None);
-                    if matches!(prev_mode, Mode::Insert) {
-                        ReedlineEvent::Repaint
-                    } else {
-                        ReedlineEvent::None
-                    }
-                }
-                HelixEvent::Normal(helix_normal) => {
-                    if let Mode::Normal(minor_mode) = self.mode {
-                        let select = matches!(minor_mode, Some(MinorMode::Select));
-                        match helix_normal {
-                            HelixNormal::InsertMode => {
-                                self.mode = Mode::Insert;
-                                ReedlineEvent::Repaint
-                            }
-                            HelixNormal::SelectMode => {
-                                if matches!(self.mode, Mode::Normal(Some(MinorMode::Select))) {
-                                    // TODO create extra bindings for minor mode
-                                    self.mode = Mode::Normal(None);
-                                } else {
-                                    self.mode = Mode::Normal(Some(MinorMode::Select));
-                                }
-                                ReedlineEvent::None
-                            }
-                            HelixNormal::MoveCharLeft => ReedlineEvent::UntilFound(vec![
-                                ReedlineEvent::MenuLeft,
-                                ReedlineEvent::Edit(vec![EditCommand::MoveLeft { select }]),
-                            ]),
-                            HelixNormal::MoveVisualLineDown => ReedlineEvent::UntilFound(vec![
-                                ReedlineEvent::MenuDown,
-                                ReedlineEvent::Down,
-                            ]),
-                            HelixNormal::MoveVisualLineUp => ReedlineEvent::UntilFound(vec![
-                                ReedlineEvent::MenuUp,
-                                ReedlineEvent::Up,
-                            ]),
-                            HelixNormal::MoveCharRight => ReedlineEvent::UntilFound(vec![
-                                ReedlineEvent::HistoryHintComplete,
-                                ReedlineEvent::MenuRight,
-                                ReedlineEvent::Edit(vec![EditCommand::MoveRight { select }]),
-                            ]),
-                        }
-                    } else {
-                        ReedlineEvent::None
-                    }
-                }
-            }
-        } else {
-            event
-        }
+        Some(event)
     }
 }
 
@@ -183,7 +201,12 @@ impl EditMode for Helix {
         match event.into() {
             Event::Key(KeyEvent {
                 code, modifiers, ..
-            }) => self.handle_binding(modifiers, code),
+            }) => self
+                .handle_binding(KeyCombination {
+                    modifier: modifiers,
+                    key_code: code,
+                })
+                .unwrap_or(ReedlineEvent::None),
             Event::Mouse(_) => ReedlineEvent::Mouse,
             Event::Resize(width, height) => ReedlineEvent::Resize(width, height),
             Event::FocusGained => ReedlineEvent::None,

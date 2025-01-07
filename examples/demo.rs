@@ -19,7 +19,7 @@ use {
 use reedline::FileBackedHistory;
 use reedline::{
     default_helix_insert_keybindings, default_helix_normal_keybindings, CursorConfig, Helix,
-    HelixEvent, KeyCombination, MenuBuilder,
+    HelixEvent, HelixNormal, KeyCombination, MenuBuilder,
 };
 
 #[derive(Parser)]
@@ -130,6 +130,32 @@ fn main() -> reedline::Result<()> {
             add_menu_keybindings(&mut keybindings);
             add_newline_keybinding(&mut keybindings);
 
+            keybindings.add_binding(
+                KeyCombination {
+                    modifier: KeyModifiers::NONE,
+                    key_code: KeyCode::Char('h'),
+                },
+                vec![
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('e'),
+                    },
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('l'),
+                    },
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('l'),
+                    },
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('o'),
+                    },
+                ],
+                ReedlineEvent::Edit("world".chars().map(EditCommand::InsertChar).collect()),
+            );
+
             Box::new(Emacs::new(keybindings))
         }
         Mode::Vi => {
@@ -144,7 +170,7 @@ fn main() -> reedline::Result<()> {
             Box::new(Vi::new(insert_keybindings, normal_keybindings))
         }
         Mode::Helix => {
-            let normal_keybindings = default_helix_normal_keybindings();
+            let mut normal_keybindings = default_helix_normal_keybindings();
             let mut insert_keybindings = default_helix_insert_keybindings();
 
             insert_keybindings.add_binding(
@@ -157,6 +183,53 @@ fn main() -> reedline::Result<()> {
                     key_code: KeyCode::Char('k'),
                 }],
                 ReedlineEvent::Helix(HelixEvent::NormalMode),
+            );
+
+            insert_keybindings.add_binding(
+                KeyCombination {
+                    modifier: KeyModifiers::NONE,
+                    key_code: KeyCode::Char('h'),
+                },
+                vec![
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('e'),
+                    },
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('l'),
+                    },
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('l'),
+                    },
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('o'),
+                    },
+                ],
+                ReedlineEvent::Edit("world".chars().map(EditCommand::InsertChar).collect()),
+            );
+
+            normal_keybindings.add_binding(
+                KeyCombination {
+                    modifier: KeyModifiers::NONE,
+                    key_code: KeyCode::Char('a'),
+                },
+                vec![
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('b'),
+                    },
+                    KeyCombination {
+                        modifier: KeyModifiers::NONE,
+                        key_code: KeyCode::Char('c'),
+                    },
+                ],
+                ReedlineEvent::Multiple(vec![
+                    ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::InsertMode)),
+                    ReedlineEvent::Edit("defgh".chars().map(EditCommand::InsertChar).collect()),
+                ]),
             );
 
             Box::new(Helix::new(insert_keybindings, normal_keybindings))

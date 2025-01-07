@@ -6,12 +6,42 @@ use {
 };
 
 #[derive(Debug)]
+pub enum KeySequenceResult {
+    Pending,
+    Matched(ReedlineEvent),
+    Cancelled(Vec<KeyCombination>),
+}
+
+#[derive(Debug)]
 /// Tracks completion of a key sequence
 pub struct PartialKeySequence {
-    /// The not yet pressed part of the sequence + ReedlineEvent
-    pub sequence: Sequence,
-    /// The history of pressed `KeyCode::Char`
-    pub history: Vec<char>,
+    sequence: Sequence,
+    history: Vec<KeyCombination>,
+}
+
+impl PartialKeySequence {
+    pub fn new(sequence: Sequence) -> Self {
+        Self {
+            sequence,
+            history: vec![],
+        }
+    }
+
+    pub fn advance(&mut self, kc: KeyCombination) -> KeySequenceResult {
+        self.history.push(kc.clone());
+        match self.sequence.map.remove(&kc) {
+            Some(KeyNode::Event(reedline_event)) => KeySequenceResult::Matched(reedline_event),
+            Some(KeyNode::Sequence(sequence)) => {
+                self.sequence = sequence;
+                KeySequenceResult::Pending
+            }
+            None => KeySequenceResult::Cancelled(std::mem::take(&mut self.history)),
+        }
+    }
+
+    pub fn cancel(self) -> Vec<KeyCombination> {
+        self.history
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
@@ -134,6 +164,14 @@ impl Keybindings {
     /// Get assigned keybindings
     pub fn get_keybindings(&self) -> &HashMap<KeyCombination, ReedlineEvent> {
         todo!()
+    }
+}
+
+pub fn to_lowercase_key_code(key_code: KeyCode) -> KeyCode {
+    if let KeyCode::Char(c) = key_code {
+        KeyCode::Char(c.to_ascii_lowercase())
+    } else {
+        key_code
     }
 }
 

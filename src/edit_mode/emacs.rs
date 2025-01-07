@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{
     edit_mode::{
         keybindings::{
@@ -11,7 +13,9 @@ use crate::{
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
-use super::keybindings::{KeyNode, PartialKeySequence};
+use super::keybindings::{
+    to_lowercase_key_code, KeyNode, KeySequenceResult, PartialKeySequence, Sequence,
+};
 
 /// Returns the current default emacs keybindings
 pub fn default_emacs_keybindings() -> Keybindings {
@@ -243,62 +247,53 @@ impl Emacs {
         }
     }
 
-    fn handle_binding(
-        &mut self,
-        modifier: KeyModifiers,
-        key_code: KeyCode,
-    ) -> Option<ReedlineEvent> {
-        let Some(mut partial_key_sequence) = self.partial_key_sequence.take() else {
-            return match self.keybindings.find_binding(modifier, key_code)? {
-                KeyNode::Sequence(sequence) => {
-                    self.partial_key_sequence = Some(PartialKeySequence {
-                        sequence,
-                        history: if let KeyCode::Char(c) = key_code {
-                            vec![if modifier == KeyModifiers::SHIFT {
-                                c.to_ascii_uppercase()
-                            } else {
-                                c
-                            }]
-                        } else {
-                            vec![]
-                        },
-                    });
-                    Some(ReedlineEvent::None)
-                }
-                KeyNode::Event(reedline_event) => Some(reedline_event),
+    fn cancel_key_sequence(&self, keycombinations: Vec<KeyCombination>) -> ReedlineEvent {
+        ReedlineEvent::Multiple(
+            keycombinations
+                .into_iter()
+                .flat_map(|kc| match kc {
+                    KeyCombination {
+                        modifier: KeyModifiers::SHIFT | KeyModifiers::NONE,
+                        key_code: KeyCode::Char(c),
+                    } => Some(ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)])),
+                    _ => match self
+                        .keybindings
+                        .find_binding(kc.modifier, to_lowercase_key_code(kc.key_code))?
+                    {
+                        KeyNode::Event(event) => Some(event),
+                        KeyNode::Sequence(_) => unreachable!(""),
+                    },
+                })
+                .collect(),
+        )
+    }
+
+    fn handle_binding(&mut self, kc: KeyCombination) -> Option<ReedlineEvent> {
+        let Some(mut partial_key_sequence) = self.partial_key_sequence.take().or_else(|| {
+            self.keybindings
+                .find_binding(kc.modifier, to_lowercase_key_code(kc.key_code))
+                .map(|key_node| {
+                    PartialKeySequence::new(Sequence {
+                        map: HashMap::from([(kc.clone(), key_node)]),
+                    })
+                })
+        }) else {
+            return if let KeyCode::Char(c) = kc.key_code {
+                Some(ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)]))
+            } else {
+                None
             };
         };
 
-        if let KeyCode::Char(c) = key_code {
-            partial_key_sequence
-                .history
-                .push(if modifier == KeyModifiers::SHIFT {
-                    c.to_ascii_uppercase()
-                } else {
-                    c
-                })
-        }
-
-        match partial_key_sequence
-            .sequence
-            .map
-            .remove(&KeyCombination { modifier, key_code })
-        {
-            Some(KeyNode::Event(reedline_event)) => Some(reedline_event),
-            Some(KeyNode::Sequence(sequence)) => {
-                self.partial_key_sequence = Some(PartialKeySequence {
-                    sequence,
-                    history: partial_key_sequence.history,
-                });
-                Some(ReedlineEvent::None)
+        match partial_key_sequence.advance(kc) {
+            KeySequenceResult::Pending => {
+                self.partial_key_sequence = Some(partial_key_sequence);
+                None
             }
-            None => Some(ReedlineEvent::Edit(
-                partial_key_sequence
-                    .history
-                    .into_iter()
-                    .map(EditCommand::InsertChar)
-                    .collect(),
-            )),
+            KeySequenceResult::Matched(reedline_event) => Some(reedline_event),
+            KeySequenceResult::Cancelled(keycombinations) => {
+                Some(self.cancel_key_sequence(keycombinations))
+            }
         }
     }
 }
@@ -308,48 +303,12 @@ impl EditMode for Emacs {
         match event.into() {
             Event::Key(KeyEvent {
                 code, modifiers, ..
-            }) => match (modifiers, code) {
-                (modifier, KeyCode::Char(c)) => {
-                    // Note. The modifier can also be a combination of modifiers, for
-                    // example:
-                    //     KeyModifiers::CONTROL | KeyModifiers::ALT
-                    //     KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT
-                    //
-                    // Mixed modifiers are used by non american keyboards that have extra
-                    // keys like 'alt gr'. Keep this in mind if in the future there are
-                    // cases where an event is not being captured
-                    let c = match modifier {
-                        KeyModifiers::NONE => c,
-                        _ => c.to_ascii_lowercase(),
-                    };
-
-                    self.handle_binding(modifier, KeyCode::Char(c))
-                        .unwrap_or_else(|| {
-                            if modifier == KeyModifiers::NONE
-                                || modifier == KeyModifiers::SHIFT
-                                || modifier == KeyModifiers::CONTROL | KeyModifiers::ALT
-                                || modifier
-                                    == KeyModifiers::CONTROL
-                                        | KeyModifiers::ALT
-                                        | KeyModifiers::SHIFT
-                            {
-                                ReedlineEvent::Edit(vec![EditCommand::InsertChar(
-                                    if modifier == KeyModifiers::SHIFT {
-                                        c.to_ascii_uppercase()
-                                    } else {
-                                        c
-                                    },
-                                )])
-                            } else {
-                                ReedlineEvent::None
-                            }
-                        })
-                }
-                _ => self
-                    .handle_binding(modifiers, code)
-                    .unwrap_or(ReedlineEvent::None),
-            },
-
+            }) => self
+                .handle_binding(KeyCombination {
+                    modifier: modifiers,
+                    key_code: code,
+                })
+                .unwrap_or(ReedlineEvent::None),
             Event::Mouse(_) => ReedlineEvent::Mouse,
             Event::Resize(width, height) => ReedlineEvent::Resize(width, height),
             Event::FocusGained => ReedlineEvent::None,
