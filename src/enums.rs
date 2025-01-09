@@ -267,6 +267,9 @@ pub enum EditCommand {
     /// Paste content from local buffer at the current cursor position
     Paste,
 
+    /// Clears the current selection
+    ClearSelection,
+
     /// Cut selection to system clipboard
     #[cfg(feature = "system_clipboard")]
     CutSelectionSystem,
@@ -365,6 +368,7 @@ impl Display for EditCommand {
             EditCommand::CutSelection => write!(f, "CutSelection"),
             EditCommand::CopySelection => write!(f, "CopySelection"),
             EditCommand::Paste => write!(f, "Paste"),
+            EditCommand::ClearSelection => write!(f, "ClearSelection"),
             #[cfg(feature = "system_clipboard")]
             EditCommand::CutSelectionSystem => write!(f, "CutSelectionSystem"),
             #[cfg(feature = "system_clipboard")]
@@ -448,7 +452,7 @@ impl EditCommand {
 
             EditCommand::Undo | EditCommand::Redo => EditType::UndoRedo,
 
-            EditCommand::CopySelection => EditType::NoOp,
+            EditCommand::CopySelection | EditCommand::ClearSelection => EditType::NoOp,
             #[cfg(feature = "system_clipboard")]
             EditCommand::CopySelectionSystem => EditType::NoOp,
         }
@@ -544,6 +548,24 @@ pub enum HelixNormal {
 
     /// Move cursor <n> characters right
     MoveCharRight,
+
+    /// Move to the start of the next word
+    MoveNextWordStart,
+
+    /// Move to the start of the previous word
+    MovePrevWordStart,
+
+    /// Move to the end of the next word
+    MoveNextWordEnd,
+
+    /// Move to the start of the next long word
+    MoveNextLongWordStart,
+
+    /// Move to the start of the previous long word
+    MovePrevLongWordStart,
+
+    /// Move to the end of the next long word
+    MoveNextLongWordEnd,
 }
 
 impl Display for HelixNormal {
@@ -555,6 +577,12 @@ impl Display for HelixNormal {
             HelixNormal::MoveVisualLineDown => write!(f, "MoveVisualLineDown"),
             HelixNormal::MoveVisualLineUp => write!(f, "MoveVisualLineUp"),
             HelixNormal::MoveCharRight => write!(f, "MoveCharRight"),
+            HelixNormal::MoveNextWordStart => write!(f, "MoveNextWordStart"),
+            HelixNormal::MovePrevWordStart => write!(f, "MovePrevWordStart"),
+            HelixNormal::MoveNextWordEnd => write!(f, "MoveNextWordEnd"),
+            HelixNormal::MoveNextLongWordStart => write!(f, "MoveNextLongWordStart"),
+            HelixNormal::MovePrevLongWordStart => write!(f, "MovePrevLongWordStart"),
+            HelixNormal::MoveNextLongWordEnd => write!(f, "MoveNextLongWordEnd"),
         }
     }
 }

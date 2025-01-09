@@ -82,6 +82,60 @@ pub fn default_helix_normal_keybindings() -> Keybindings {
         ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MoveCharRight)),
     );
 
+    kb.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Char('w'),
+        },
+        vec![],
+        ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MoveNextWordStart)),
+    );
+
+    kb.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Char('b'),
+        },
+        vec![],
+        ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MovePrevWordStart)),
+    );
+
+    kb.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Char('e'),
+        },
+        vec![],
+        ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MoveNextWordEnd)),
+    );
+
+    kb.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::SHIFT,
+            key_code: KeyCode::Char('w'),
+        },
+        vec![],
+        ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MoveNextLongWordStart)),
+    );
+
+    kb.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::SHIFT,
+            key_code: KeyCode::Char('b'),
+        },
+        vec![],
+        ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MovePrevLongWordStart)),
+    );
+
+    kb.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::SHIFT,
+            key_code: KeyCode::Char('e'),
+        },
+        vec![],
+        ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MoveNextLongWordEnd)),
+    );
+
     kb
 }
 

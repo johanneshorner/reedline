@@ -120,6 +120,7 @@ impl Editor {
             EditCommand::CutSelection => self.cut_selection_to_cut_buffer(),
             EditCommand::CopySelection => self.copy_selection_to_cut_buffer(),
             EditCommand::Paste => self.paste_cut_buffer(),
+            EditCommand::ClearSelection => self.selection_anchor = None,
             #[cfg(feature = "system_clipboard")]
             EditCommand::CutSelectionSystem => self.cut_selection_to_system(),
             #[cfg(feature = "system_clipboard")]

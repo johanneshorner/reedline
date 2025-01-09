@@ -1,6 +1,8 @@
+mod commands;
 mod keybindings;
 use std::{collections::HashMap, num::NonZeroUsize};
 
+use itertools::Itertools;
 pub use keybindings::{default_helix_insert_keybindings, default_helix_normal_keybindings};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
@@ -158,6 +160,7 @@ impl Helix {
     }
 
     fn handle_helix_event(&mut self, event: HelixEvent) -> Option<ReedlineEvent> {
+        let count = self.count.take().map(|c| c.get()).unwrap_or(1);
         let event = match event {
             HelixEvent::NormalMode => {
                 let prev_mode = self.mode;
@@ -185,23 +188,54 @@ impl Helix {
                             }
                             ReedlineEvent::None
                         }
-                        HelixNormal::MoveCharLeft => ReedlineEvent::UntilFound(vec![
-                            ReedlineEvent::MenuLeft,
+                        HelixNormal::MoveCharLeft => apply_multiplier(
                             ReedlineEvent::Edit(vec![EditCommand::MoveLeft { select }]),
-                        ]),
-                        HelixNormal::MoveVisualLineDown => ReedlineEvent::UntilFound(vec![
-                            ReedlineEvent::MenuDown,
-                            ReedlineEvent::Down,
-                        ]),
-                        HelixNormal::MoveVisualLineUp => ReedlineEvent::UntilFound(vec![
-                            ReedlineEvent::MenuUp,
-                            ReedlineEvent::Up,
-                        ]),
-                        HelixNormal::MoveCharRight => ReedlineEvent::UntilFound(vec![
-                            ReedlineEvent::HistoryHintComplete,
-                            ReedlineEvent::MenuRight,
+                            count,
+                        ),
+                        HelixNormal::MoveVisualLineDown => {
+                            apply_multiplier(ReedlineEvent::Down, count)
+                        }
+                        HelixNormal::MoveVisualLineUp => apply_multiplier(ReedlineEvent::Up, count),
+                        HelixNormal::MoveCharRight => apply_multiplier(
                             ReedlineEvent::Edit(vec![EditCommand::MoveRight { select }]),
-                        ]),
+                            count,
+                        ),
+                        HelixNormal::MoveNextWordStart => apply_multiplier(
+                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveWordRight {
+                                select: true,
+                            }])),
+                            count,
+                        ),
+                        HelixNormal::MovePrevWordStart => apply_multiplier(
+                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveWordLeft {
+                                select: true,
+                            }])),
+                            count,
+                        ),
+                        HelixNormal::MoveNextWordEnd => apply_multiplier(
+                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveWordRightEnd {
+                                select: true,
+                            }])),
+                            count,
+                        ),
+                        HelixNormal::MoveNextLongWordStart => apply_multiplier(
+                            ReedlineEvent::Edit(apply_select(&[
+                                EditCommand::MoveBigWordRightStart { select: true },
+                            ])),
+                            count,
+                        ),
+                        HelixNormal::MovePrevLongWordStart => apply_multiplier(
+                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveBigWordLeft {
+                                select: true,
+                            }])),
+                            count,
+                        ),
+                        HelixNormal::MoveNextLongWordEnd => apply_multiplier(
+                            ReedlineEvent::Edit(apply_select(&[
+                                EditCommand::MoveBigWordRightEnd { select: true },
+                            ])),
+                            count,
+                        ),
                     }
                 } else {
                     ReedlineEvent::None
@@ -211,6 +245,16 @@ impl Helix {
 
         Some(event)
     }
+}
+
+fn apply_select(events: &[EditCommand]) -> Vec<EditCommand> {
+    let mut events = events.to_vec();
+    events.insert(events.len() - 1, EditCommand::ClearSelection);
+    events
+}
+
+fn apply_multiplier(event: ReedlineEvent, count: usize) -> ReedlineEvent {
+    ReedlineEvent::Multiple(std::iter::repeat(event).take(count).collect())
 }
 
 impl EditMode for Helix {
