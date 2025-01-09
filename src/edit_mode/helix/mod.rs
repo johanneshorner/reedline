@@ -1,5 +1,4 @@
 mod keybindings;
-use std::{collections::HashMap, fmt::UpperExp, num::NonZeroUsize};
 use std::{collections::HashMap, num::NonZeroUsize};
 
 pub use keybindings::{default_helix_insert_keybindings, default_helix_normal_keybindings};
@@ -35,7 +34,7 @@ pub struct Helix {
     insert_keybindings: Keybindings,
     normal_keybindings: Keybindings,
     mode: Mode,
-    count: Option<usize>,
+    count: Option<NonZeroUsize>,
     partial_key_sequence: Option<PartialKeySequence>,
 }
 
@@ -119,11 +118,29 @@ impl Helix {
                     })
                 })
         }) else {
-            return if let (Mode::Insert, KeyCode::Char(c)) = (self.mode, kc.key_code) {
-                Some(ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)]))
-            } else {
-                None
-            };
+            if let KeyCode::Char(c) = kc.key_code {
+                if let Mode::Insert = self.mode {
+                    return Some(ReedlineEvent::Edit(vec![EditCommand::InsertChar(c)]));
+                }
+
+                match (c, self.count) {
+                    ('0'..='9', Some(count)) => {
+                        let n = c.to_digit(10).unwrap() as usize;
+                        let new_count = count.get() * 10 + n;
+                        if count.get() < 100_000_000 {
+                            self.count = NonZeroUsize::new(new_count);
+                        }
+                    }
+                    // A non-zero digit will start the count if that number isn't used by a keymap.
+                    ('1'..='9', None) => {
+                        let n = c.to_digit(10).unwrap() as usize;
+                        self.count = NonZeroUsize::new(n);
+                    }
+                    _ => {}
+                }
+            }
+
+            return None;
         };
         match partial_key_sequence.advance(kc) {
             KeySequenceResult::Pending => {
