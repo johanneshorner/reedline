@@ -19,7 +19,7 @@ use super::{
 use crate::{
     edit_mode::{keybindings::Keybindings, vi::parser::parse},
     enums::{EditCommand, ReedlineEvent, ReedlineRawEvent},
-    PromptEditMode, PromptViMode,
+    LineBuffer, PromptEditMode, PromptViMode,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -120,7 +120,7 @@ impl Vi {
 }
 
 impl EditMode for Vi {
-    fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
+    fn parse_event(&mut self, _line_buffer: &LineBuffer, event: ReedlineRawEvent) -> ReedlineEvent {
         match event.into() {
             Event::Key(KeyEvent {
                 code, modifiers, ..

@@ -768,7 +768,7 @@ impl Reedline {
             let mut resize = None;
             for event in events {
                 if let Ok(event) = ReedlineRawEvent::try_from(event) {
-                    match self.edit_mode.parse_event(event) {
+                    match self.edit_mode.parse_event(self.editor.line_buffer(), event) {
                         ReedlineEvent::Edit(edit) => edits.extend(edit),
                         ReedlineEvent::Resize(x, y) => resize = Some((x, y)),
                         event => {

@@ -66,6 +66,12 @@ impl Editor {
             }
             EditCommand::MoveWordRightEnd { select } => self.move_word_right_end(*select),
             EditCommand::MoveBigWordRightEnd { select } => self.move_big_word_right_end(*select),
+            EditCommand::MoveWordRightBeforeStart { select } => {
+                self.move_word_right_before_start(*select)
+            }
+            EditCommand::MoveBigWordRightBeforeStart { select } => {
+                self.move_big_word_right_before_start(*select)
+            }
             EditCommand::InsertChar(c) => self.insert_char(*c),
             EditCommand::Complete => {}
             EditCommand::InsertString(str) => self.insert_str(str),
@@ -628,6 +634,14 @@ impl Editor {
 
     fn move_big_word_right_end(&mut self, select: bool) {
         self.move_to_position(self.line_buffer.big_word_right_end_index(), select);
+    }
+
+    fn move_word_right_before_start(&mut self, select: bool) {
+        self.move_to_position(self.line_buffer.word_right_before_start_index(), select);
+    }
+
+    fn move_big_word_right_before_start(&mut self, select: bool) {
+        self.move_to_position(self.line_buffer.big_word_right_before_start_index(), select);
     }
 
     fn insert_char(&mut self, c: char) {

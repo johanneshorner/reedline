@@ -2,10 +2,10 @@ mod commands;
 mod keybindings;
 use std::{collections::HashMap, num::NonZeroUsize};
 
-use itertools::Itertools;
 pub use keybindings::{default_helix_insert_keybindings, default_helix_normal_keybindings};
 
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     keybindings::{
@@ -16,7 +16,8 @@ use super::{
 use crate::{
     edit_mode::keybindings::Keybindings,
     enums::{EditCommand, HelixEvent, HelixNormal, ReedlineEvent, ReedlineRawEvent},
-    PromptEditMode, PromptHelixMode,
+    hinter::is_whitespace_str,
+    LineBuffer, PromptEditMode, PromptHelixMode,
 };
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -77,6 +78,7 @@ impl Helix {
 
     fn cancel_key_sequence(
         &mut self,
+        line_buffer: &LineBuffer,
         keycombinations: Vec<KeyCombination>,
     ) -> Option<ReedlineEvent> {
         self.count = None;
@@ -92,22 +94,28 @@ impl Helix {
                     .active_bindings()
                     .find_binding(kc.modifier, to_lowercase_key_code(kc.key_code))?
                 {
-                    KeyNode::Event(ReedlineEvent::Helix(event)) => self.handle_helix_event(event),
+                    KeyNode::Event(ReedlineEvent::Helix(event)) => {
+                        self.handle_helix_event(line_buffer, event)
+                    }
                     KeyNode::Event(event) => Some(event),
                     KeyNode::Sequence(_) => unreachable!(""),
                 },
             })
             .collect();
 
-        (!events.is_empty()).then(|| ReedlineEvent::Multiple(events))
+        (!events.is_empty()).then_some(ReedlineEvent::Multiple(events))
     }
 
-    fn handle_binding(&mut self, kc: KeyCombination) -> Option<ReedlineEvent> {
+    fn handle_binding(
+        &mut self,
+        line_buffer: &LineBuffer,
+        kc: KeyCombination,
+    ) -> Option<ReedlineEvent> {
         if matches!(kc.key_code, KeyCode::Esc) {
             return if let Some(partial) = self.partial_key_sequence.take() {
-                self.cancel_key_sequence(partial.cancel())
+                self.cancel_key_sequence(line_buffer, partial.cancel())
             } else {
-                self.handle_helix_event(HelixEvent::NormalMode)
+                self.handle_helix_event(line_buffer, HelixEvent::NormalMode)
             };
         }
 
@@ -150,16 +158,20 @@ impl Helix {
                 None
             }
             KeySequenceResult::Matched(ReedlineEvent::Helix(event)) => {
-                self.handle_helix_event(event)
+                self.handle_helix_event(line_buffer, event)
             }
             KeySequenceResult::Matched(reedline_event) => Some(reedline_event),
             KeySequenceResult::Cancelled(keycombinations) => {
-                self.cancel_key_sequence(keycombinations)
+                self.cancel_key_sequence(line_buffer, keycombinations)
             }
         }
     }
 
-    fn handle_helix_event(&mut self, event: HelixEvent) -> Option<ReedlineEvent> {
+    fn handle_helix_event(
+        &mut self,
+        line_buffer: &LineBuffer,
+        event: HelixEvent,
+    ) -> Option<ReedlineEvent> {
         let count = self.count.take().map(|c| c.get()).unwrap_or(1);
         let event = match event {
             HelixEvent::NormalMode => {
@@ -200,42 +212,96 @@ impl Helix {
                             ReedlineEvent::Edit(vec![EditCommand::MoveRight { select }]),
                             count,
                         ),
-                        HelixNormal::MoveNextWordStart => apply_multiplier(
-                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveWordRight {
-                                select: true,
-                            }])),
-                            count,
-                        ),
-                        HelixNormal::MovePrevWordStart => apply_multiplier(
-                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveWordLeft {
-                                select: true,
-                            }])),
-                            count,
-                        ),
-                        HelixNormal::MoveNextWordEnd => apply_multiplier(
-                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveWordRightEnd {
-                                select: true,
-                            }])),
-                            count,
-                        ),
-                        HelixNormal::MoveNextLongWordStart => apply_multiplier(
-                            ReedlineEvent::Edit(apply_select(&[
-                                EditCommand::MoveBigWordRightStart { select: true },
-                            ])),
-                            count,
-                        ),
-                        HelixNormal::MovePrevLongWordStart => apply_multiplier(
-                            ReedlineEvent::Edit(apply_select(&[EditCommand::MoveBigWordLeft {
-                                select: true,
-                            }])),
-                            count,
-                        ),
-                        HelixNormal::MoveNextLongWordEnd => apply_multiplier(
-                            ReedlineEvent::Edit(apply_select(&[
-                                EditCommand::MoveBigWordRightEnd { select: true },
-                            ])),
-                            count,
-                        ),
+                        HelixNormal::MoveNextWordStart => {
+                            let mut base: Vec<EditCommand> =
+                                std::iter::repeat(EditCommand::MoveWordRightBeforeStart {
+                                    select: true,
+                                })
+                                .take(count)
+                                .collect();
+                            if !select {
+                                base.insert(base.len() - 1, EditCommand::ClearSelection);
+                            }
+                            if (is_whitespace_str(grapheme_right_n(line_buffer, 0))
+                                && !is_whitespace_str(grapheme_right_n(line_buffer, 1)))
+                                || count > 1
+                            {
+                                base.insert(base.len() - 1, EditCommand::MoveRight { select });
+                            }
+                            ReedlineEvent::Edit(base)
+                        }
+                        HelixNormal::MovePrevWordStart => {
+                            let mut base: Vec<EditCommand> =
+                                std::iter::repeat(EditCommand::MoveWordLeft { select: true })
+                                    .take(count)
+                                    .collect();
+                            if !select {
+                                base.insert(base.len() - 1, EditCommand::ClearSelection);
+                            }
+                            if is_whitespace_str(grapheme_left_n(line_buffer, 1)) {
+                                base.insert(base.len() - 1, EditCommand::MoveLeft { select });
+                            }
+                            ReedlineEvent::Edit(base)
+                        }
+                        HelixNormal::MoveNextWordEnd => {
+                            let mut base: Vec<EditCommand> =
+                                std::iter::repeat(EditCommand::MoveWordRightEnd { select: true })
+                                    .take(count)
+                                    .collect();
+                            if !select {
+                                base.insert(base.len() - 1, EditCommand::ClearSelection);
+                            }
+                            if is_whitespace_str(grapheme_right_n(line_buffer, 1)) {
+                                base.insert(base.len() - 1, EditCommand::MoveRight { select });
+                            }
+                            ReedlineEvent::Edit(base)
+                        }
+                        HelixNormal::MoveNextLongWordStart => {
+                            let mut base: Vec<EditCommand> =
+                                std::iter::repeat(EditCommand::MoveBigWordRightBeforeStart {
+                                    select: true,
+                                })
+                                .take(count)
+                                .collect();
+                            if !select {
+                                base.insert(base.len() - 1, EditCommand::ClearSelection);
+                            }
+                            if (is_whitespace_str(grapheme_right_n(line_buffer, 0))
+                                && !is_whitespace_str(grapheme_right_n(line_buffer, 1)))
+                                || count > 1
+                            {
+                                base.insert(base.len() - 1, EditCommand::MoveRight { select });
+                            }
+                            ReedlineEvent::Edit(base)
+                        }
+                        HelixNormal::MovePrevLongWordStart => {
+                            let mut base: Vec<EditCommand> =
+                                std::iter::repeat(EditCommand::MoveBigWordLeft { select: true })
+                                    .take(count)
+                                    .collect();
+                            if !select {
+                                base.insert(base.len() - 1, EditCommand::ClearSelection);
+                            }
+                            if is_whitespace_str(grapheme_left_n(line_buffer, 1)) {
+                                base.insert(base.len() - 1, EditCommand::MoveLeft { select });
+                            }
+                            ReedlineEvent::Edit(base)
+                        }
+                        HelixNormal::MoveNextLongWordEnd => {
+                            let mut base: Vec<EditCommand> =
+                                std::iter::repeat(EditCommand::MoveBigWordRightEnd {
+                                    select: true,
+                                })
+                                .take(count)
+                                .collect();
+                            if !select {
+                                base.insert(base.len() - 1, EditCommand::ClearSelection);
+                            }
+                            if is_whitespace_str(grapheme_right_n(line_buffer, 1)) {
+                                base.insert(base.len() - 1, EditCommand::MoveRight { select });
+                            }
+                            ReedlineEvent::Edit(base)
+                        }
                     }
                 } else {
                     ReedlineEvent::None
@@ -247,10 +313,18 @@ impl Helix {
     }
 }
 
-fn apply_select(events: &[EditCommand]) -> Vec<EditCommand> {
-    let mut events = events.to_vec();
-    events.insert(events.len() - 1, EditCommand::ClearSelection);
-    events
+fn grapheme_right_n(line_buffer: &LineBuffer, n: usize) -> &str {
+    let buf = &line_buffer.get_buffer()[line_buffer.insertion_point()..];
+    buf.graphemes(true).nth(n).unwrap_or(buf)
+}
+
+fn grapheme_left_n(line_buffer: &LineBuffer, n: usize) -> &str {
+    if line_buffer.insertion_point() > line_buffer.len() - 1 {
+        ""
+    } else {
+        let buf = &line_buffer.get_buffer()[..=line_buffer.insertion_point()];
+        buf.graphemes(true).rev().nth(n).unwrap_or(buf)
+    }
 }
 
 fn apply_multiplier(event: ReedlineEvent, count: usize) -> ReedlineEvent {
@@ -258,15 +332,18 @@ fn apply_multiplier(event: ReedlineEvent, count: usize) -> ReedlineEvent {
 }
 
 impl EditMode for Helix {
-    fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
+    fn parse_event(&mut self, line_buffer: &LineBuffer, event: ReedlineRawEvent) -> ReedlineEvent {
         match event.into() {
             Event::Key(KeyEvent {
                 code, modifiers, ..
             }) => self
-                .handle_binding(KeyCombination {
-                    modifier: modifiers,
-                    key_code: code,
-                })
+                .handle_binding(
+                    line_buffer,
+                    KeyCombination {
+                        modifier: modifiers,
+                        key_code: code,
+                    },
+                )
                 .unwrap_or(ReedlineEvent::None),
             Event::Mouse(_) => ReedlineEvent::Mouse,
             Event::Resize(width, height) => ReedlineEvent::Resize(width, height),

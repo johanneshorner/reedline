@@ -9,7 +9,7 @@ use crate::{
         EditMode,
     },
     enums::{EditCommand, ReedlineEvent, ReedlineRawEvent},
-    PromptEditMode,
+    LineBuffer, PromptEditMode,
 };
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyModifiers};
 
@@ -299,7 +299,7 @@ impl Emacs {
 }
 
 impl EditMode for Emacs {
-    fn parse_event(&mut self, event: ReedlineRawEvent) -> ReedlineEvent {
+    fn parse_event(&mut self, _line_buffer: &LineBuffer, event: ReedlineRawEvent) -> ReedlineEvent {
         match event.into() {
             Event::Key(KeyEvent {
                 code, modifiers, ..

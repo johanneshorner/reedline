@@ -299,6 +299,34 @@ impl LineBuffer {
             .unwrap_or(0)
     }
 
+    /// Cursor position *in front of* one character to the left of the next word to the right
+    pub fn word_right_before_start_index(&self) -> usize {
+        self.lines[self.insertion_point..]
+            .split_word_bound_indices()
+            .skip(1)
+            .find(|(i, word)| {
+                !is_whitespace_str(word)
+                    && self.grapheme_left_index_from_pos(self.insertion_point + i)
+                        != self.insertion_point
+            })
+            .map(|(i, _)| self.grapheme_left_index_from_pos(self.insertion_point + i))
+            .unwrap_or_else(|| self.lines.len())
+    }
+
+    /// Cursor position *in front of* one character-to the left of the next WORD to the right
+    pub fn big_word_right_before_start_index(&self) -> usize {
+        self.lines[self.insertion_point..]
+            .split_word_bound_indices()
+            .tuple_windows()
+            .find(|((_, word), (i, _))| {
+                is_whitespace_str(word)
+                    && self.grapheme_left_index_from_pos(self.insertion_point + i)
+                        != self.insertion_point
+            })
+            .map(|(_, (i, _))| self.grapheme_left_index_from_pos(self.insertion_point + i))
+            .unwrap_or_else(|| self.lines.len())
+    }
+
     /// Cursor position on the next whitespace
     pub fn next_whitespace(&self) -> usize {
         self.lines[self.insertion_point..]
@@ -331,6 +359,11 @@ impl LineBuffer {
     /// Move cursor position *behind* the next word to the right
     pub fn move_word_right(&mut self) {
         self.insertion_point = self.word_right_index();
+    }
+
+    /// Move cursor position *behind* the next WORD to the right
+    pub fn move_big_word_right(&mut self) {
+        self.insertion_point = self.big_word_right_index();
     }
 
     /// Move cursor position to the start of the next word

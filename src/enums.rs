@@ -106,6 +106,18 @@ pub enum EditCommand {
         select: bool,
     },
 
+    /// Move one word to the right, stop before the start of word
+    MoveWordRightBeforeStart {
+        /// Select the text between the current cursor position and destination
+        select: bool,
+    },
+
+    /// Move one WORD to the right, stop before the start of word
+    MoveBigWordRightBeforeStart {
+        /// Select the text between the current cursor position and destination
+        select: bool,
+    },
+
     /// Insert a character at the current insertion point
     InsertChar(char),
 
@@ -324,6 +336,12 @@ impl Display for EditCommand {
             EditCommand::MoveLeftBefore { .. } => {
                 write!(f, "MoveLeftBefore Value: <char>, Optional[select: <bool>]")
             }
+            EditCommand::MoveWordRightBeforeStart { .. } => {
+                write!(f, "MoveWordRightBeforeStart Optional[select: <bool>]")
+            }
+            EditCommand::MoveBigWordRightBeforeStart { .. } => {
+                write!(f, "MoveBigWordRightBeforeStart Optional[select: <bool>]")
+            }
             EditCommand::InsertChar(_) => write!(f, "InsertChar  Value: <char>"),
             EditCommand::InsertString(_) => write!(f, "InsertString Value: <string>"),
             EditCommand::InsertNewline => write!(f, "InsertNewline"),
@@ -402,7 +420,9 @@ impl EditCommand {
             | EditCommand::MoveRightUntil { select, .. }
             | EditCommand::MoveRightBefore { select, .. }
             | EditCommand::MoveLeftUntil { select, .. }
-            | EditCommand::MoveLeftBefore { select, .. } => {
+            | EditCommand::MoveLeftBefore { select, .. }
+            | EditCommand::MoveWordRightBeforeStart { select, .. }
+            | EditCommand::MoveBigWordRightBeforeStart { select, .. } => {
                 EditType::MoveCursor { select: *select }
             }
 
