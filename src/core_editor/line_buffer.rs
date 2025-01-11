@@ -755,6 +755,18 @@ impl LineBuffer {
 
     /// Moves the insertion point before the next char to the right
     pub fn move_right_before(&mut self, c: char, current_line: bool) -> usize {
+        // TODO: ?
+        if self.lines[self.insertion_point..]
+            .graphemes(true)
+            .nth(1)
+            .unwrap()
+            .chars()
+            .next()
+            .unwrap()
+            == c
+        {
+            self.insertion_point = self.grapheme_right_index();
+        }
         if let Some(index) = self.find_char_right(c, current_line) {
             self.insertion_point = index;
             self.insertion_point = self.grapheme_left_index();

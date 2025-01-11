@@ -586,6 +586,9 @@ pub enum HelixNormal {
 
     /// Move to the end of the next long word
     MoveNextLongWordEnd,
+
+    /// Find 'till next char
+    FindTillChar,
 }
 
 impl Display for HelixNormal {
@@ -603,6 +606,7 @@ impl Display for HelixNormal {
             HelixNormal::MoveNextLongWordStart => write!(f, "MoveNextLongWordStart"),
             HelixNormal::MovePrevLongWordStart => write!(f, "MovePrevLongWordStart"),
             HelixNormal::MoveNextLongWordEnd => write!(f, "MoveNextLongWordEnd"),
+            HelixNormal::FindTillChar => write!(f, "FindTillChar"),
         }
     }
 }

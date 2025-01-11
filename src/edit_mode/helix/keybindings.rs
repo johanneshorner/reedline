@@ -136,6 +136,15 @@ pub fn default_helix_normal_keybindings() -> Keybindings {
         ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::MoveNextLongWordEnd)),
     );
 
+    kb.add_binding(
+        KeyCombination {
+            modifier: KeyModifiers::NONE,
+            key_code: KeyCode::Char('t'),
+        },
+        vec![],
+        ReedlineEvent::Helix(HelixEvent::Normal(HelixNormal::FindTillChar)),
+    );
+
     kb
 }
 

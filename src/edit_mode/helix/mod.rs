@@ -1,6 +1,6 @@
 mod commands;
 mod keybindings;
-use std::{collections::HashMap, num::NonZeroUsize};
+use std::{collections::HashMap, num::NonZeroUsize, sync::Arc};
 
 pub use keybindings::{default_helix_insert_keybindings, default_helix_normal_keybindings};
 
@@ -39,6 +39,11 @@ pub struct Helix {
     mode: Mode,
     count: Option<NonZeroUsize>,
     partial_key_sequence: Option<PartialKeySequence>,
+    on_next_char: Option<Box<dyn FnOnce(KeyCombination) -> Option<ReedlineEvent> + Send>>,
+}
+
+pub struct Asd {
+    on_next_char: Option<Box<dyn FnOnce(KeyCombination) -> Option<ReedlineEvent> + Send>>,
 }
 
 impl Default for Helix {
@@ -49,6 +54,7 @@ impl Default for Helix {
             mode: Mode::Insert,
             count: None,
             partial_key_sequence: None,
+            on_next_char: None,
         }
     }
 }
@@ -67,6 +73,7 @@ impl Helix {
         self.mode = mode;
         self.count = None;
         self.partial_key_sequence = None;
+        self.on_next_char = None;
     }
 
     fn active_bindings(&self) -> &Keybindings {
@@ -112,11 +119,16 @@ impl Helix {
         kc: KeyCombination,
     ) -> Option<ReedlineEvent> {
         if matches!(kc.key_code, KeyCode::Esc) {
+            self.on_next_char = None;
             return if let Some(partial) = self.partial_key_sequence.take() {
                 self.cancel_key_sequence(line_buffer, partial.cancel())
             } else {
                 self.handle_helix_event(line_buffer, HelixEvent::NormalMode)
             };
+        }
+
+        if let Some(on_next_char) = self.on_next_char.take() {
+            return on_next_char(kc.clone());
         }
 
         let Some(mut partial_key_sequence) = self.partial_key_sequence.take().or_else(|| {
@@ -301,6 +313,26 @@ impl Helix {
                                 base.insert(base.len() - 1, EditCommand::MoveRight { select });
                             }
                             ReedlineEvent::Edit(base)
+                        }
+                        HelixNormal::FindTillChar => {
+                            self.on_next_char = Some(Box::new(move |kc: KeyCombination| {
+                                if let KeyCode::Char(c) = kc.key_code {
+                                    let mut base: Vec<EditCommand> =
+                                        std::iter::repeat(EditCommand::MoveRightBefore {
+                                            c,
+                                            select: true,
+                                        })
+                                        .take(count)
+                                        .collect();
+                                    if select {
+                                        base.insert(0, EditCommand::Clear);
+                                    }
+                                    Some(ReedlineEvent::Edit(base))
+                                } else {
+                                    None
+                                }
+                            }));
+                            ReedlineEvent::None
                         }
                     }
                 } else {
